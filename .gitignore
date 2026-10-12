@@ -1,0 +1,24 @@
+# Database (auto-generated at runtime)
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+env/
+.venv/
+
+# Uploads (user-generated content)
+static/uploads/*
+!static/uploads/.gitkeep
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
