@@ -494,6 +494,8 @@ def update_case_status(case_id):
     })
 
 
+# Initialize DB at import time so WSGI servers (gunicorn, etc.) start with a ready database.
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=5006, debug=True)

@@ -203,9 +203,9 @@
           const notesHtml = truncate(c.notes, 60);
           const badge = statusBadge(c.status);
 
-          // Upgrade 3: Photo thumbnail column
+          // Upgrade 3: Photo thumbnail column — esc() prevents XSS via crafted filenames
           const photoHtml = c.photo_filename
-            ? `<img src="/uploads/${c.photo_filename}" alt="Photo" style="height:40px;border-radius:3px;" />`
+            ? `<img src="/uploads/${esc(c.photo_filename)}" alt="Photo" style="height:40px;border-radius:3px;" />`
             : '<em class="text-slate-400">—</em>';
 
           // Upgrade 4: Status dropdown with In Progress

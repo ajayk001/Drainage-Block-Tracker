@@ -233,9 +233,9 @@
           weight: 2
         });
 
-        // Upgrade 3: Photo thumbnail in popup
+        // Upgrade 3: Photo thumbnail in popup — esc() prevents XSS via crafted filenames
         const photoHtml = c.photo_filename
-          ? `<div class="mt-2"><img src="/uploads/${c.photo_filename}" alt="Photo" style="max-width:180px;max-height:120px;border-radius:4px;margin-top:6px;" /></div>`
+          ? `<div class="mt-2"><img src="/uploads/${esc(c.photo_filename)}" alt="Photo" style="max-width:180px;max-height:120px;border-radius:4px;margin-top:6px;" /></div>`
           : '';
 
         const severityLabel = ['', 'Low', 'Minor', 'Moderate', 'High', 'Critical'];
