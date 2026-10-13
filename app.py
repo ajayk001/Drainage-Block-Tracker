@@ -348,10 +348,13 @@ def submit_report():
         if notes:
             merged_notes = merged_notes + (' | ' if merged_notes else '') + notes
 
-        # Update asset/zone/team if previously unset and now snapped
+        # Update asset/zone/team if previously unset and now snapped.
+        # is_generic_team covers both NULL and the 'General Maintenance Team' fallback written
+        # when the original case had no zone snap — so a later snapped merge can promote it.
         update_asset_id = asset_id if (asset_id and not merged_case['asset_id']) else merged_case['asset_id']
         update_zone_id = zone_id if (zone_id and not merged_case['zone_id']) else merged_case['zone_id']
-        update_team = assigned_team if (zone_id and not merged_case['assigned_team']) else (merged_case['assigned_team'] or assigned_team)
+        is_generic_team = (not merged_case['assigned_team'] or merged_case['assigned_team'] == 'General Maintenance Team')
+        update_team = assigned_team if (zone_id and is_generic_team) else (merged_case['assigned_team'] or assigned_team)
 
         # photo_filename: keep existing unless new report brings a photo (COALESCE keeps old if new is NULL)
         cur.execute('''
