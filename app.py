@@ -315,19 +315,26 @@ def submit_report():
     cur.execute("SELECT * FROM cases WHERE status != 'Resolved'")
     active_cases = cur.fetchall()
 
+    # Find the *nearest* active case within 25 m (not just the first one found)
     merged_case = None
+    min_merge_dist = float('inf')
     for case in active_cases:
         dist = haversine(lat, lng, case['lat'], case['lng'])
-        if dist <= 25:
+        if dist <= 25 and dist < min_merge_dist:
             merged_case = case
-            break
+            min_merge_dist = dist
 
     if merged_case:
         new_report_count = merged_case['report_count'] + 1
         # Use the merged case's area_impact (or incoming if missing)
         merged_area_impact = merged_case['area_impact'] or area_impact
 
-        # Upgrade priority logic: use higher-priority area_impact if incoming is more severe
+        # NOTE: impact_rank is an *ordinal override comparison* map — it determines which
+        # area_impact tag "wins" when merging two reports. It must NOT be aligned to the
+        # multiplier values in get_area_impact_multiplier(); the ordering here is intentional
+        # (e.g. School Zone ranks above Main Road for override purposes even though Main Road
+        # has a higher numeric multiplier). Changing these values to match the multipliers
+        # would silently break merge escalation priority.
         impact_rank = {
             'Residential': 1, 'Commercial Hub': 2, 'Main Road': 3,
             'School Zone': 4, 'Hospital Zone': 5
@@ -346,6 +353,7 @@ def submit_report():
         update_zone_id = zone_id if (zone_id and not merged_case['zone_id']) else merged_case['zone_id']
         update_team = assigned_team if (zone_id and not merged_case['assigned_team']) else (merged_case['assigned_team'] or assigned_team)
 
+        # photo_filename: keep existing unless new report brings a photo (COALESCE keeps old if new is NULL)
         cur.execute('''
             UPDATE cases
             SET report_count = ?,
@@ -355,10 +363,11 @@ def submit_report():
                 asset_id = ?,
                 zone_id = ?,
                 assigned_team = ?,
+                photo_filename = COALESCE(?, photo_filename),
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ''', (new_report_count, new_priority, merged_notes, final_area_impact,
-              update_asset_id, update_zone_id, update_team, merged_case['id']))
+              update_asset_id, update_zone_id, update_team, photo_filename, merged_case['id']))
         conn.commit()
 
         cur.execute('SELECT * FROM cases WHERE id = ?', (merged_case['id'],))
@@ -439,9 +448,12 @@ def update_case_status(case_id):
         conn.close()
         return jsonify({'error': 'Case not found'}), 404
 
-    # Upgrade 4: Auto-assign team when transitioning to Assigned or In Progress
+    # Upgrade 4: Auto-assign team when transitioning to Assigned or In Progress.
+    # Also re-evaluate if currently set to the generic fallback 'General Maintenance Team',
+    # since that value is written when zone_id was unknown at creation — a later snap may
+    # have filled zone_id, so we re-derive the team here.
     assigned_team = case['assigned_team']
-    if new_status in ('Assigned', 'In Progress') and not assigned_team:
+    if new_status in ('Assigned', 'In Progress') and (not assigned_team or assigned_team == 'General Maintenance Team'):
         zone_id = case['zone_id']
         assigned_team = get_team_for_zone(zone_id)
         cur.execute('''
