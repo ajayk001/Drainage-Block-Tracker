@@ -153,29 +153,42 @@ def init_db():
     cur.execute('SELECT COUNT(*) FROM cases')
     count = cur.fetchone()[0]
     if count == 0:
-        # Seed cases with new fields; snap some to known assets and zones
+        # Seed cases with new fields.
+        # asset_id/zone_id are only set for cases whose coordinates are within 20 m of the
+        # referenced asset — matching the runtime snap rule.  Cases placed more than 20 m from
+        # any asset are seeded with asset_id=None/zone_id=None (unsnapped).
         seed_data = [
             # lat, lng, severity, notes, status, report_count, photo_filename, area_impact, asset_id, zone_id, assigned_team
+            # Row 1: exactly at Zone-1 Asset A (12.9716, 77.5946) — distance = 0 m ✓
             (12.9716, 77.5946, 4, 'Main road drain completely blocked, water logging', 'Open', 2, None,
              'Commercial Hub', 1, 'Zone-1', get_team_for_zone('Zone-1')),
+            # Row 2: no nearby asset — unsnapped
             (12.9751, 77.5993, 3, 'Partial blockage near market area', 'Assigned', 1, None,
              'Residential', None, None, 'General Maintenance Team'),
+            # Row 3: no nearby asset within 20 m — unsnapped (nearest is Zone-2 Asset A at ~217 m)
             (12.9680, 77.5880, 5, 'Severe flooding, drain overflow at junction', 'Open', 1, None,
-             'Main Road', 4, 'Zone-2', get_team_for_zone('Zone-2')),
+             'Main Road', None, None, 'General Maintenance Team'),
+            # Row 4: no nearby asset within 20 m — unsnapped (nearest is Zone-3 Asset A at ~222 m)
             (12.9800, 77.6010, 2, 'Minor debris accumulation', 'Resolved', 3, None,
-             'Residential', 7, 'Zone-3', get_team_for_zone('Zone-3')),
+             'Residential', None, None, 'General Maintenance Team'),
+            # Row 5: no nearby asset within 20 m — unsnapped (nearest is Zone-5 Asset A at ~108 m)
             (12.9730, 77.5850, 1, 'Small blockage, low priority', 'Resolved', 1, None,
-             'Residential', 13, 'Zone-5', get_team_for_zone('Zone-5')),
+             'Residential', None, None, 'General Maintenance Team'),
+            # Row 6: no nearby asset within 20 m — unsnapped (nearest is Zone-4 Asset A at ~222 m)
             (12.9660, 77.5960, 4, 'Storm drain blocked after heavy rain', 'Open', 2, None,
-             'School Zone', 10, 'Zone-4', get_team_for_zone('Zone-4')),
+             'School Zone', None, None, 'General Maintenance Team'),
+            # Row 7: no nearby asset — unsnapped
             (12.9810, 77.5900, 3, 'Drain grate missing, safety hazard', 'Assigned', 1, None,
              'Hospital Zone', None, None, 'General Maintenance Team'),
+            # Row 8: no nearby asset — unsnapped
             (12.9690, 77.6030, 5, 'Critical blockage causing road flooding', 'Open', 3, None,
              'Main Road', None, None, 'General Maintenance Team'),
+            # Row 9: no nearby asset — unsnapped
             (12.9770, 77.5970, 2, 'Leaves and debris blocking outlet', 'Open', 1, None,
              'Residential', None, None, 'General Maintenance Team'),
+            # Row 10: no nearby asset within 20 m — unsnapped (nearest is Zone-4 Asset A at ~542 m)
             (12.9640, 77.5910, 4, 'Industrial waste blocking residential drain', 'Assigned', 2, None,
-             'Commercial Hub', 10, 'Zone-4', get_team_for_zone('Zone-4')),
+             'Commercial Hub', None, None, 'General Maintenance Team'),
         ]
         for row in seed_data:
             (lat, lng, severity, notes, status, report_count, photo_filename,
@@ -329,12 +342,10 @@ def submit_report():
         # Use the merged case's area_impact (or incoming if missing)
         merged_area_impact = merged_case['area_impact'] or area_impact
 
-        # NOTE: impact_rank is an *ordinal override comparison* map — it determines which
-        # area_impact tag "wins" when merging two reports. It must NOT be aligned to the
-        # multiplier values in get_area_impact_multiplier(); the ordering here is intentional
-        # (e.g. School Zone ranks above Main Road for override purposes even though Main Road
-        # has a higher numeric multiplier). Changing these values to match the multipliers
-        # would silently break merge escalation priority.
+        # impact_rank determines which area_impact tag wins when merging two reports.
+        # Higher rank = higher priority override. The ordering intentionally mirrors the
+        # multiplier ordering in get_area_impact_multiplier() (Residential < Commercial Hub
+        # < Main Road < School Zone < Hospital Zone) so that higher-impact zones always win.
         impact_rank = {
             'Residential': 1, 'Commercial Hub': 2, 'Main Road': 3,
             'School Zone': 4, 'Hospital Zone': 5
@@ -477,6 +488,9 @@ def update_case_status(case_id):
         'status': updated['status'],
         'updated_at': updated['updated_at'],
         'assigned_team': updated['assigned_team'],
+        'asset_id': updated['asset_id'],
+        'zone_id': updated['zone_id'],
+        'area_impact': updated['area_impact'],
     })
 
 

@@ -99,11 +99,21 @@
 
   <!-- Upgrade 5: Footer -->
   <footer class="bg-white border-t border-slate-100 py-2 text-center text-xs text-slate-400">
-    DrainWatch — Drainage Blockage Tracking System. It does not predict or model localized flood risk from individual reports alone.
+    ℹ️ DrainWatch tracks drainage blockages and maintenance workflows. It does not predict or model localized flood risk from individual reports alone.
   </footer>
 
   <script>
     const SEVERITY_LABELS = ['', 'Low', 'Minor', 'Moderate', 'High', 'Critical'];
+
+    // HTML escape helper (prevents XSS in innerHTML-set table rows)
+    function esc(s) {
+      if (s === null || s === undefined) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
 
     function statusBadge(status) {
       const styles = {
@@ -131,7 +141,8 @@
 
     function truncate(text, maxLen) {
       if (!text) return '<em class="text-slate-400">—</em>';
-      return text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+      const escaped = esc(text);
+      return escaped.length > maxLen ? escaped.substring(0, maxLen) + '…' : escaped;
     }
 
     async function updateStatus(id, newStatus, selectEl) {
@@ -212,9 +223,9 @@
               <td class="px-4 py-3 text-slate-600">${c.report_count}</td>
               <td class="px-4 py-3 text-slate-600 max-w-xs">${notesHtml}</td>
               <td class="px-4 py-3">${photoHtml}</td>
-              <td class="px-4 py-3 text-slate-600 text-xs">${c.assigned_team || '—'}</td>
-              <td class="px-4 py-3 text-slate-600 text-xs">${c.area_impact || '—'}</td>
-              <td class="px-4 py-3 text-slate-600 text-xs">${c.zone_id || '—'}</td>
+              <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.assigned_team) || '—'}</td>
+              <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.area_impact) || '—'}</td>
+              <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.zone_id) || '—'}</td>
               <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">${formatDate(c.updated_at)}</td>
               <td class="px-4 py-3">
                 <select
