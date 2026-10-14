@@ -22,3 +22,6 @@ static/uploads/*
 # IDE
 .vscode/
 .idea/
+
+# Agent task artifacts
+.agents/
