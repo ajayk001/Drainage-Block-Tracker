@@ -11,20 +11,39 @@
     .toast.fade-out { opacity: 0; }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex flex-col">
+<body class="bg-slate-100 min-h-screen flex flex-col text-slate-800">
 
   <!-- Header -->
-  <header class="bg-slate-800 text-white px-4 py-3 flex items-center justify-between shrink-0 shadow-lg">
+  <header class="bg-slate-800 text-white px-4 py-3 flex items-center justify-between shrink-0 shadow-lg z-10">
     <div class="flex items-center gap-2">
-      <span class="text-2xl">🌊</span>
-      <span class="text-xl font-bold tracking-tight">DrainWatch</span>
-      <span class="ml-2 text-slate-400 text-sm font-normal">/ Municipal Dashboard</span>
-    </div>
-    <nav>
-      <a href="/" class="text-slate-300 hover:text-white text-sm font-medium px-3 py-1.5 rounded hover:bg-slate-700 transition">
-        ← Back to Map
+      <a href="/" class="flex items-center gap-2 hover:opacity-90 transition">
+        <span class="text-2xl drop-shadow">🌊</span>
+        <span class="text-xl font-bold tracking-tight">DrainWatch</span>
       </a>
-    </nav>
+      <span class="ml-2 text-slate-400 text-sm font-normal hidden sm:inline">/ Municipal Dashboard</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/" class="text-slate-300 hover:text-white text-xs sm:text-sm font-medium px-3 py-1.5 rounded hover:bg-slate-700 transition flex items-center gap-1">
+        <span>←</span>
+        <span>Public Map</span>
+      </a>
+      {% if user %}
+      <div class="flex items-center gap-2.5 pl-3 border-l border-slate-700">
+        <div class="text-right hidden sm:block">
+          <div class="text-xs font-semibold text-slate-200">{{ user.name }}</div>
+          <div class="text-[10px] text-blue-400 font-mono">{{ user.role }} • {{ user.zone }}</div>
+        </div>
+        <a href="/logout" class="bg-rose-600/90 hover:bg-rose-600 active:bg-rose-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1.5" title="Sign Out">
+          <span>🚪</span>
+          <span class="hidden sm:inline">Sign Out</span>
+        </a>
+      </div>
+      {% else %}
+      <a href="/login" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1">
+        <span>🔐</span> Sign In
+      </a>
+      {% endif %}
+    </div>
   </header>
 
   <!-- Disclaimer banner -->
@@ -33,7 +52,7 @@
     <span>DrainWatch tracks drainage blockages and maintenance workflows. It does not predict or model localized flood risk from individual reports alone.</span>
   </div>
 
-  <main class="flex-1 p-4 md:p-6 max-w-screen-xl mx-auto w-full">
+  <main class="flex-1 p-4 md:p-6 max-w-screen-2xl mx-auto w-full">
 
     <!-- Summary stats -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -59,10 +78,43 @@
       </div>
     </div>
 
-    <!-- Table header row -->
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-base font-semibold text-slate-700">Active Maintenance Cases</h2>
-      <span id="lastUpdated" class="text-xs text-slate-400"></span>
+    <!-- Controls & Filters row -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
+        <h2 class="text-base font-semibold text-slate-700">Active Maintenance Cases</h2>
+        
+        <!-- Status filter -->
+        <div class="flex items-center gap-1.5 text-xs">
+          <label for="statusFilter" class="font-medium text-slate-500">Status:</label>
+          <select id="statusFilter" class="border border-slate-300 rounded-lg px-2.5 py-1 text-xs bg-slate-50 focus:outline-none focus:ring-1 focus:ring-blue-400">
+            <option value="ALL">All Statuses</option>
+            <option value="Open">Open</option>
+            <option value="Assigned">Assigned</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Resolved">Resolved</option>
+          </select>
+        </div>
+
+        <!-- Zone filter -->
+        <div class="flex items-center gap-1.5 text-xs">
+          <label for="zoneFilter" class="font-medium text-slate-500">Zone:</label>
+          <select id="zoneFilter" class="border border-slate-300 rounded-lg px-2.5 py-1 text-xs bg-slate-50 focus:outline-none focus:ring-1 focus:ring-blue-400">
+            <option value="ALL">All Zones</option>
+            <option value="Zone-1">Zone-1</option>
+            <option value="Zone-2">Zone-2</option>
+            <option value="Zone-3">Zone-3</option>
+            <option value="Zone-4">Zone-4</option>
+            <option value="Zone-5">Zone-5</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span id="lastUpdated" class="text-xs text-slate-400"></span>
+        <button id="refreshBtn" onclick="loadCases()" class="text-xs font-semibold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+          <span>🔄</span> Refresh
+        </button>
+      </div>
     </div>
 
     <!-- Cases table -->
@@ -98,12 +150,13 @@
   <div id="toast-container"></div>
 
   <!-- Footer disclaimer -->
-  <footer class="bg-white border-t border-slate-100 py-2 text-center text-xs text-slate-400">
+  <footer class="bg-white border-t border-slate-100 py-3 text-center text-xs text-slate-400 mt-auto">
     ℹ️ DrainWatch tracks drainage blockages and maintenance workflows. It does not predict or model localized flood risk from individual reports alone.
   </footer>
 
   <script>
     const SEVERITY_LABELS = ['', 'Low', 'Minor', 'Moderate', 'High', 'Critical'];
+    let cachedCases = [];
 
     // HTML escape helper — prevents XSS in innerHTML-built table rows
     function esc(s) {
@@ -123,20 +176,29 @@
         Resolved: 'bg-green-100 text-green-700 border border-green-300'
       };
       const cls = styles[status] || 'bg-slate-100 text-slate-700 border border-slate-300';
-      return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${cls}">${esc(status)}</span>`;
+      return `<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}">${esc(status)}</span>`;
     }
 
     function rowBg(status) {
-      if (status === 'Open') return 'bg-red-50';
-      if (status === 'Assigned') return 'bg-orange-50';
-      if (status === 'In Progress') return 'bg-purple-50';
-      return 'bg-green-50';
+      if (status === 'Open') return 'bg-red-50/50';
+      if (status === 'Assigned') return 'bg-orange-50/50';
+      if (status === 'In Progress') return 'bg-purple-50/50';
+      return 'bg-green-50/50';
     }
 
     function formatDate(ts) {
       if (!ts) return '—';
-      const d = new Date(ts.replace(' ', 'T') + 'Z');
-      return d.toLocaleString();
+      try {
+        const cleaned = ts.includes('T') ? ts : ts.replace(' ', 'T') + (ts.endsWith('Z') ? '' : 'Z');
+        const d = new Date(cleaned);
+        if (isNaN(d.getTime())) {
+          const fallback = new Date(ts);
+          return isNaN(fallback.getTime()) ? esc(ts) : fallback.toLocaleString();
+        }
+        return d.toLocaleString();
+      } catch (e) {
+        return esc(ts);
+      }
     }
 
     function truncate(text, maxLen) {
@@ -145,7 +207,9 @@
       return escaped.length > maxLen ? escaped.substring(0, maxLen) + '…' : escaped;
     }
 
+    // Status update with rollback on failure
     async function updateStatus(id, newStatus, selectEl) {
+      const originalStatus = selectEl.getAttribute('data-current') || selectEl.value;
       selectEl.disabled = true;
       try {
         const res = await fetch(`/api/cases/${id}/status`, {
@@ -153,8 +217,12 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus })
         });
-        if (!res.ok) throw new Error('Failed to update status');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to update status');
+        }
         const data = await res.json();
+        selectEl.setAttribute('data-current', newStatus);
         if (data.assigned_team) {
           showToast(`Case #${id} → ${newStatus} | Team: ${data.assigned_team}`, 'green');
         } else {
@@ -163,17 +231,86 @@
         await loadCases();
       } catch (err) {
         showToast('Error: ' + err.message, 'red');
+        selectEl.value = originalStatus;
         selectEl.disabled = false;
       }
     }
 
+    // Filter and render table
+    function renderTable() {
+      const statusVal = document.getElementById('statusFilter').value;
+      const zoneVal = document.getElementById('zoneFilter').value;
+
+      let filtered = cachedCases.filter(c => {
+        if (statusVal !== 'ALL' && c.status !== statusVal) return false;
+        if (zoneVal !== 'ALL' && c.zone_id !== zoneVal) return false;
+        return true;
+      });
+
+      const tbody = document.getElementById('casesTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="13" class="px-4 py-8 text-center text-slate-400">No matching cases found for selected filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(c => {
+        const bg = rowBg(c.status);
+        const lat = parseFloat(c.lat).toFixed(4);
+        const lng = parseFloat(c.lng).toFixed(4);
+        const severityLabel = `${c.severity} – ${SEVERITY_LABELS[c.severity] || ''}`;
+        const notesHtml = truncate(c.notes, 60);
+        const badge = statusBadge(c.status);
+
+        // Photo thumbnail with broken image prevention
+        const photoHtml = c.photo_filename
+          ? `<img src="/uploads/${esc(c.photo_filename)}" alt="Photo" onerror="this.outerHTML='<em class=\\'text-slate-400\\'>—</em>'" style="height:38px;width:38px;border-radius:4px;object-fit:cover;" />`
+          : '<em class="text-slate-400">—</em>';
+
+        // Status dropdown with data-current for rollback
+        const selectOpts = ['Open', 'Assigned', 'In Progress', 'Resolved'].map(s =>
+          `<option value="${s}" ${s === c.status ? 'selected' : ''}>${s}</option>`
+        ).join('');
+
+        return `
+          <tr class="${bg} border-b border-slate-200 hover:brightness-95 transition">
+            <td class="px-4 py-3 font-mono font-bold text-slate-800">#${c.id}</td>
+            <td class="px-4 py-3 font-mono text-slate-600 text-xs">${lat}, ${lng}</td>
+            <td class="px-4 py-3 text-slate-700">${severityLabel}</td>
+            <td class="px-4 py-3">${badge}</td>
+            <td class="px-4 py-3 font-semibold text-slate-800">${c.priority_score}</td>
+            <td class="px-4 py-3 text-slate-600">${c.report_count}</td>
+            <td class="px-4 py-3 text-slate-600 max-w-xs">${notesHtml}</td>
+            <td class="px-4 py-3">${photoHtml}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.assigned_team) || '—'}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.area_impact) || '—'}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.zone_id) || '—'}</td>
+            <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">${formatDate(c.updated_at)}</td>
+            <td class="px-4 py-3">
+              <select
+                data-current="${c.status}"
+                class="text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer shadow-sm"
+                onchange="updateStatus(${c.id}, this.value, this)"
+              >
+                ${selectOpts}
+              </select>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     async function loadCases() {
+      const refreshBtn = document.getElementById('refreshBtn');
+      if (refreshBtn) refreshBtn.innerHTML = '<span>⏳</span> Refreshing...';
+
       try {
         const res = await fetch('/api/cases');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const cases = await res.json();
 
         // Sort by priority_score descending
         cases.sort((a, b) => b.priority_score - a.priority_score);
+        cachedCases = cases;
 
         // Update stats
         const total = cases.length;
@@ -188,66 +325,23 @@
         document.getElementById('statInProgress').textContent = inProgress;
         document.getElementById('statResolved').textContent = resolved;
 
-        // Build table rows
-        const tbody = document.getElementById('casesTableBody');
-        if (cases.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="13" class="px-4 py-8 text-center text-slate-400">No cases found.</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = cases.map(c => {
-          const bg = rowBg(c.status);
-          const lat = parseFloat(c.lat).toFixed(4);
-          const lng = parseFloat(c.lng).toFixed(4);
-          const severityLabel = `${c.severity} – ${SEVERITY_LABELS[c.severity] || ''}`;
-          const notesHtml = truncate(c.notes, 60);
-          const badge = statusBadge(c.status);
-
-          // Photo thumbnail — esc() prevents XSS via crafted filenames
-          const photoHtml = c.photo_filename
-            ? `<img src="/uploads/${esc(c.photo_filename)}" alt="Photo" style="height:40px;border-radius:3px;" />`
-            : '<em class="text-slate-400">—</em>';
-
-          // Status dropdown with full lifecycle
-          const selectOpts = ['Open', 'Assigned', 'In Progress', 'Resolved'].map(s =>
-            `<option value="${s}" ${s === c.status ? 'selected' : ''}>${s}</option>`
-          ).join('');
-
-          return `
-            <tr class="${bg} border-b border-slate-200 hover:brightness-95 transition">
-              <td class="px-4 py-3 font-mono font-semibold text-slate-700">#${c.id}</td>
-              <td class="px-4 py-3 font-mono text-slate-600 text-xs">${lat}, ${lng}</td>
-              <td class="px-4 py-3 text-slate-700">${severityLabel}</td>
-              <td class="px-4 py-3">${badge}</td>
-              <td class="px-4 py-3 font-semibold text-slate-800">${c.priority_score}</td>
-              <td class="px-4 py-3 text-slate-600">${c.report_count}</td>
-              <td class="px-4 py-3 text-slate-600 max-w-xs">${notesHtml}</td>
-              <td class="px-4 py-3">${photoHtml}</td>
-              <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.assigned_team) || '—'}</td>
-              <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.area_impact) || '—'}</td>
-              <td class="px-4 py-3 text-slate-600 text-xs">${esc(c.zone_id) || '—'}</td>
-              <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">${formatDate(c.updated_at)}</td>
-              <td class="px-4 py-3">
-                <select
-                  class="text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
-                  onchange="updateStatus(${c.id}, this.value, this)"
-                >
-                  ${selectOpts}
-                </select>
-              </td>
-            </tr>
-          `;
-        }).join('');
+        renderTable();
 
         document.getElementById('lastUpdated').textContent =
-          'Last updated: ' + new Date().toLocaleTimeString();
+          'Updated: ' + new Date().toLocaleTimeString();
 
       } catch (err) {
         console.error('Failed to load cases:', err);
         document.getElementById('casesTableBody').innerHTML =
-          '<tr><td colspan="13" class="px-4 py-8 text-center text-red-400">Failed to load cases. Is the server running?</td></tr>';
+          '<tr><td colspan="13" class="px-4 py-8 text-center text-red-500">Failed to load cases. Is the server running?</td></tr>';
+      } finally {
+        if (refreshBtn) refreshBtn.innerHTML = '<span>🔄</span> Refresh';
       }
     }
+
+    // Hook filter changes
+    document.getElementById('statusFilter').addEventListener('change', renderTable);
+    document.getElementById('zoneFilter').addEventListener('change', renderTable);
 
     function showToast(message, color) {
       const colors = { green: '#16a34a', blue: '#2563eb', red: '#dc2626', orange: '#ea580c' };
@@ -260,7 +354,7 @@
       setTimeout(() => {
         toast.classList.add('fade-out');
         setTimeout(() => toast.remove(), 500);
-      }, 3000);
+      }, 3500);
     }
 
     // Initial load + auto-refresh every 30s

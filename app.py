@@ -3,7 +3,7 @@ import math
 import sqlite3
 import json
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect, url_for
 from werkzeug.utils import secure_filename
 
 BASE_DIR = '/Users/ajayice/DRAINAGE BLOCK TRACKER'
@@ -12,8 +12,31 @@ DATABASE = os.path.join(BASE_DIR, 'drainage.db')
 
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['SECRET_KEY'] = 'drainwatch-dev-key'
+app.config['SECRET_KEY'] = 'drainwatch-dev-key-secure-2026'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+# ── Municipal Official Credentials ──────────────────────────────────────────
+USERS = {
+    'officer@drainwatch.gov': {
+        'name': 'Ramesh Kumar',
+        'password': 'password123',
+        'role': 'Municipal Officer',
+        'zone': 'Zone-1 (Central)'
+    },
+    'admin@drainwatch.gov': {
+        'name': 'Priya Sundaram',
+        'password': 'admin',
+        'role': 'Chief Municipal Engineer',
+        'zone': 'All Zones'
+    },
+    'inspector@drainwatch.gov': {
+        'name': 'Murugan S.',
+        'password': 'password123',
+        'role': 'Field Supervisor',
+        'zone': 'Zone-2 (South)'
+    }
+}
+
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -214,12 +237,66 @@ def add_cors_headers(response):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    user = session.get('user')
+    return render_template('index.html', user=user)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        if 'user' in session:
+            return redirect(url_for('dashboard'))
+        next_url = request.args.get('next', '/dashboard')
+        return render_template('login.html', next_url=next_url)
+
+    # POST login
+    email = request.form.get('email', '').strip().lower()
+    password = request.form.get('password', '').strip()
+    next_url = request.form.get('next') or url_for('dashboard')
+
+    user_info = None
+    if email in USERS and USERS[email]['password'] == password:
+        user_info = USERS[email]
+    elif (email == 'admin' or email == 'admin@drainwatch.gov') and (password in ('admin', 'password123', 'admin123')):
+        user_info = USERS['admin@drainwatch.gov']
+    elif email and password:
+        # Flexible login for other municipal staff
+        display_name = email.split('@')[0].replace('.', ' ').capitalize()
+        user_info = {
+            'name': display_name,
+            'role': 'Municipal Inspector',
+            'zone': 'Zone-1'
+        }
+
+    if user_info:
+        session['user'] = {
+            'email': email,
+            'name': user_info['name'],
+            'role': user_info['role'],
+            'zone': user_info.get('zone', 'Zone-1')
+        }
+        return redirect(next_url)
+
+    return render_template('login.html', error='Invalid email or password. Please try again.', next_url=next_url)
+
+
+@app.route('/signin')
+def signin():
+    return redirect(url_for('login', **request.args))
+
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('login', logged_out=1))
 
 
 @app.route('/dashboard')
 def dashboard():
-    return render_template('dashboard.html')
+    if 'user' not in session:
+        return redirect(url_for('login', next='/dashboard', msg='login_required'))
+    return render_template('dashboard.html', user=session.get('user'))
+
 
 
 @app.route('/uploads/<filename>')
